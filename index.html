@@ -5,37 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>THDX • Solana NFT UI</title>
 
-  <!-- ✅ FULL FIX: Buffer polyfill untuk semua browser mobile -->
-  <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js"></script>
-  <script>
-    try {
-      // Pastikan variabel global 'buffer' & 'Buffer' ada
-      window.buffer = window.buffer || window.Buffer || {};
-      window.Buffer = window.Buffer || buffer.Buffer || window.buffer;
-
-      // Tambahkan fungsi isEncoding() untuk kompatibilitas web3.js
-      if (typeof window.Buffer.isEncoding !== "function") {
-        window.Buffer.isEncoding = function (enc) {
-          const list = ["utf8","utf-8","hex","base64","ascii","binary","ucs2","ucs-2","utf16le","utf-16le"];
-          return list.includes((enc || "").toLowerCase());
-        };
-      }
-
-      // Pastikan Buffer.from() tersedia
-      if (typeof window.Buffer.from !== "function") {
-        window.Buffer.from = function (data, enc) {
-          return new (window.Buffer)(data, enc);
-        };
-      }
-
-      console.log("✅ Buffer polyfill aktif:", typeof window.Buffer.from, typeof window.Buffer.isEncoding);
-    } catch (e) {
-      console.error("❌ Buffer polyfill gagal:", e);
-    }
-  </script>
-
-  <!-- ✅ Solana Web3.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+  <!-- ✅ Solana Web3.js bundle khusus browser (sudah ada polyfill Buffer) -->
+  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.browser.min.js"></script>
 
   <style>
     body {
