@@ -1,216 +1,127 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Wormhole Bridge EDU (No-Send) | Sepolia ↔ Monad</title>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <style>
-    body{background:#0b1220;color:#e6edf3;font-family:system-ui,Arial,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;padding:20px}
-    .card{background:#121a2a;border:1px solid #22304a;border-radius:12px;padding:24px;width:min(560px,95vw);box-shadow:0 0 12px rgba(0,0,0,.3)}
-    h2{color:#8b5cf6;margin:0 0 6px}
-    p.sub{margin:0 0 14px;color:#9fb3c8}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    input,select,button{width:100%;padding:12px;border-radius:10px;border:0;margin-top:10px;font-size:15px}
-    button{cursor:pointer;font-weight:700;transition:.2s}
-    #connect{background:linear-gradient(90deg,#6ee7ff,#7c5cff)}
-    #prepare{background:linear-gradient(90deg,#22c55e,#15803d)}
-    pre{background:#0f1625;border:1px solid #22304a;border-radius:10px;padding:10px;text-align:left;font-size:13px;white-space:pre-wrap;margin-top:12px;max-height:340px;overflow:auto}
-    a{color:#22c55e;text-decoration:none}
-    .muted{opacity:.8}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Multi Token Bridge • Sepolia → Monad (Wormhole)</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+body { background:#0b1220; color:#fff; font-family:sans-serif; text-align:center; padding:20px; }
+h2 { color:#7c5cff; }
+select, input, button, textarea { width:90%; padding:12px; margin:8px 0; border-radius:8px; border:0; font-size:15px; }
+button { cursor:pointer; font-weight:bold; color:white; }
+#connect { background:linear-gradient(90deg,#6ee7ff,#7c5cff); }
+#approve { background:linear-gradient(90deg,#22c55e,#16a34a); }
+#bridge { background:linear-gradient(90deg,#facc15,#eab308); }
+#redeem { background:linear-gradient(90deg,#7c5cff,#6ee7ff); }
+pre { text-align:left; background:#111a2e; padding:10px; border-radius:8px; white-space:pre-wrap; word-break:break-all; }
+</style>
 </head>
 <body>
-  <div class="card">
-    <h2>🌉 Wormhole Bridge EDU (No Send)</h2>
-    <p class="sub">Menyiapkan parameter <b>approve</b> & <b>transferTokens</b> untuk USDC Sepolia → Monad (tanpa kirim transaksi)</p>
 
-    <button id="connect">🔌 Connect Wallet</button>
+<h2>🌉 Multi Token Bridge</h2>
+<p>Sepolia → Monad Testnet via Wormhole</p>
 
-    <div class="row">
-      <div>
-        <label>Asal ➜ Tujuan</label>
-        <select id="direction">
-          <option value="sepolia">Sepolia → Monad</option>
-          <option value="monad">Monad → Sepolia</option>
-        </select>
-      </div>
-      <div>
-        <label>Wormhole dstChainId</label>
-        <input id="dstChainId" type="number" value="31041" />
-      </div>
-    </div>
+<select id="token">
+  <option value="USDC">USDC</option>
+  <option value="USDT">USDT</option>
+  <option value="WBTC">WBTC</option>
+</select>
 
-    <div class="row">
-      <div>
-        <label>USDC Amount</label>
-        <input id="amount" type="number" placeholder="misal: 10.5" />
-      </div>
-      <div>
-        <label>USDC Decimals</label>
-        <input id="decimals" type="number" value="6" />
-      </div>
-    </div>
+<input id="amount" placeholder="Masukkan jumlah token" />
+<button id="connect">🔌 Connect Wallet</button>
+<button id="approve" disabled>✅ Approve Token</button>
+<button id="bridge" disabled>🚀 Bridge ke Monad</button>
 
-    <label>Recipient (EVM)</label>
-    <input id="recipient" value="0x4d02af17a29cda77416a1f60eae9092bb6d9c026" />
+<h3>Redeem VAA di Monad</h3>
+<textarea id="vaa" placeholder="Tempel Signed VAA (hex hasil converter) di sini"></textarea>
+<button id="redeem" disabled>🔁 Redeem VAA</button>
 
-    <div class="row">
-      <div>
-        <label>USDC (Sepolia)</label>
-        <input id="usdcSepolia" value="0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238" />
-      </div>
-      <div>
-        <label>USDC (Monad)</label>
-        <input id="usdcMonad" value="0xf817257fed379853cDe0fa4F97AB987181B1E5Ea" />
-      </div>
-    </div>
+<pre id="log">Log siap...</pre>
 
-    <label>Wormhole TokenBridge (kontrak EVM)</label>
-    <input id="tokenBridge" value="0x6c5aAE4622B835058A41879bA5e128019B9047d6" />
+<script>
+const TOKENS = {
+  USDC: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  USDT: "0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0",
+  WBTC: "0x52eeA312378ef46140EBE67dE8a143BA2304FD7C"
+};
 
-    <button id="prepare">🧪 Siapkan Param (NO SEND)</button>
+const BRIDGE = "0x6c5aAE4622B835058A41879bA5e128019B9047d6";
+const DST_CHAIN = 31041; // Wormhole Monad Testnet ChainID
 
-    <pre id="log">Log siap...</pre>
+let provider, signer, user;
 
-    <p class="muted">
-      ℹ️ Edu-only: tombol ini tidak pernah mengirim transaksi.  
-      Jika nanti kamu ingin kirim manual, bisa lewat Etherscan “Write Contract” dengan calldata yang ditampilkan.
-    </p>
-  </div>
+function log(m){ const el=document.getElementById("log"); el.textContent+="\n"+m; el.scrollTop=el.scrollHeight; console.log(m); }
 
-  <script>
-    const logEl = document.getElementById("log");
-    const log = (m)=>{ logEl.textContent += "\\n" + m; logEl.scrollTop = logEl.scrollHeight; console.log(m); };
+async function connect(){
+  try{
+    if(!window.ethereum) throw new Error("Gunakan MetaMask / OKX Wallet");
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = provider.getSigner();
+    user = await signer.getAddress();
+    const net = await provider.getNetwork();
+    log(`✅ Connected: ${user}\nChain: ${net.chainId}`);
+    document.getElementById("approve").disabled = false;
+    document.getElementById("redeem").disabled = false;
+  }catch(e){ log("❌ "+e.message); }
+}
 
-    // Konfigurasi dasar chain
-    const CHAINS = {
-      sepolia: { name: "Sepolia", chainId: 11155111, explorer: "https://sepolia.etherscan.io" },
-      monad:   { name: "Monad",   chainId: 4242,     explorer: "https://testnet.monvision.io" }
-    };
+async function approveToken(){
+  try{
+    const symbol = document.getElementById("token").value;
+    const tokenAddr = TOKENS[symbol];
+    const amount = document.getElementById("amount").value.trim();
+    if(!amount) return log("⚠️ Masukkan jumlah token dulu");
+    const decimals = symbol === "WBTC" ? 8 : 6;
+    const amt = ethers.utils.parseUnits(amount, decimals);
+    const erc20 = new ethers.Contract(tokenAddr, ["function approve(address,uint256) returns (bool)"], signer);
+    const tx = await erc20.approve(BRIDGE, amt);
+    log(`🧾 Approve ${symbol}: ${tx.hash}`);
+    await tx.wait();
+    log(`✅ Approve ${symbol} sukses!`);
+    document.getElementById("bridge").disabled = false;
+  }catch(e){ log("❌ "+e.message); }
+}
 
-    const ERC20_ABI = [
-      "function approve(address spender, uint256 amount) external returns (bool)"
-    ];
+async function bridgeToken(){
+  try{
+    const symbol = document.getElementById("token").value;
+    const tokenAddr = TOKENS[symbol];
+    const amount = document.getElementById("amount").value.trim();
+    if(!amount) return log("⚠️ Masukkan jumlah token dulu");
+    const decimals = symbol === "WBTC" ? 8 : 6;
+    const amt = ethers.utils.parseUnits(amount, decimals);
+    const recipientBytes = "0x" + user.slice(2).padStart(64, "0");
+    const abi = ["function transferTokens(address,uint256,uint16,bytes32,uint256,uint32)"];
+    const bridge = new ethers.Contract(BRIDGE, abi, signer);
+    const nonce = Math.floor(Math.random() * 1e9);
+    log(`🚀 Mengirim ${amount} ${symbol} ke Monad...`);
+    const tx = await bridge.transferTokens(tokenAddr, amt, DST_CHAIN, recipientBytes, 0, nonce);
+    log(`📦 Bridge TX: ${tx.hash}`);
+    await tx.wait();
+    log(`✅ ${symbol} berhasil di-bridge ke Monad! Tunggu VAA untuk redeem.`);
+  }catch(e){ log("❌ "+e.message); }
+}
 
-    // ABI minimal Wormhole TokenBridge EVM (transferTokens)
-    // signature umum: transferTokens(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce)
-    const TOKEN_BRIDGE_ABI = [
-      "function transferTokens(address,uint256,uint16,bytes32,uint256,uint32) payable"
-    ];
+async function redeemVAA(){
+  try{
+    const hexVAA = document.getElementById("vaa").value.trim();
+    if(!hexVAA.startsWith("0x")) throw new Error("Format harus hex (awali 0x)");
+    const abi = ["function completeTransfer(bytes memory encodedVm)"];
+    const bridge = new ethers.Contract(BRIDGE, abi, signer);
+    log("🔁 Mengirim redeem VAA ke Wormhole bridge...");
+    const tx = await bridge.completeTransfer(hexVAA);
+    log(`📦 Redeem TX: ${tx.hash}`);
+    await tx.wait();
+    log("✅ Redeem sukses! Token muncul di Monad.");
+  }catch(e){ log("❌ "+e.message); }
+}
 
-    // util: address → bytes32
-    function addrTo32Bytes(addr){
-      const hex = ethers.utils.getAddress(addr).slice(2);
-      return "0x" + hex.padStart(64, "0");
-    }
-
-    let provider, signer, user;
-
-    async function connect(){
-      try{
-        if(!window.ethereum) throw new Error("MetaMask / OKX tidak ditemukan");
-        provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-        await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
-        user = await signer.getAddress();
-        const net = await provider.getNetwork();
-        log(`✅ Connected: ${user}\\nChain: ${net.chainId}`);
-      }catch(e){
-        log("❌ Connect error: " + (e.message||e));
-      }
-    }
-
-    function hexifyCalldata(iface, fn, args){
-      try {
-        return iface.encodeFunctionData(fn, args);
-      } catch(e){
-        return "ENCODE ERROR: " + (e.message || e);
-      }
-    }
-
-    async function prepare(){
-      try{
-        const dir = document.getElementById("direction").value;
-        const amountStr = document.getElementById("amount").value;
-        const decimals = parseInt(document.getElementById("decimals").value || "6", 10);
-        const recipient = document.getElementById("recipient").value.trim();
-        const usdcSepolia = document.getElementById("usdcSepolia").value.trim();
-        const usdcMonad   = document.getElementById("usdcMonad").value.trim();
-        const tokenBridge = document.getElementById("tokenBridge").value.trim();
-        const dstChainId  = parseInt(document.getElementById("dstChainId").value, 10);
-
-        if(!amountStr) return log("⚠️ Masukkan jumlah USDC");
-        if(!ethers.utils.isAddress(recipient)) return log("⚠️ Recipient bukan alamat EVM valid");
-        if(!ethers.utils.isAddress(tokenBridge)) return log("⚠️ TokenBridge bukan alamat EVM valid");
-
-        // chain asal & token asal
-        const src = dir === "sepolia" ? "sepolia" : "monad";
-        const dst = dir === "sepolia" ? "monad"   : "sepolia";
-        const srcUSDC = dir === "sepolia" ? usdcSepolia : usdcMonad;
-
-        // cek chain saat ini (hanya untuk info/log; tidak auto switch di mode EDU)
-        if(provider){
-          const net = await provider.getNetwork();
-          if(net.chainId !== CHAINS[src].chainId){
-            log(`ℹ️ Info: Wallet kamu di ChainID ${net.chainId}, sedangkan sumber simulasi ${CHAINS[src].name} (${CHAINS[src].chainId}). (Mode EDU: tidak auto-switch)`);
-          }
-        }
-
-        // hitung amountLD (decimals 6 default USDC)
-        const amountLD = ethers.utils.parseUnits(amountStr, decimals);
-
-        // siapkan iface & calldata
-        const erc20 = new ethers.utils.Interface(ERC20_ABI);
-        const tbridge = new ethers.utils.Interface(TOKEN_BRIDGE_ABI);
-
-        const approveData = hexifyCalldata(erc20, "approve", [tokenBridge, amountLD]);
-
-        // recipient bytes32 (Wormhole butuh bytes32)
-        const recipient32 = addrTo32Bytes(recipient);
-
-        // arbiterFee=0 (umum), nonce= acak 32-bit
-        const arbiterFee = ethers.constants.Zero;
-        const nonce = Math.floor(Math.random() * 2**32);
-
-        const transferArgs = [srcUSDC, amountLD, dstChainId, recipient32, arbiterFee, nonce];
-        const transferData = hexifyCalldata(tbridge, "transferTokens", transferArgs);
-
-        log("────────────────────────────────");
-        log(`🔧 Mode: ${CHAINS[src].name} → ${CHAINS[dst].name}`);
-        log(`💰 amount: ${amountStr} USDC  -> amountLD: ${amountLD.toString()}`);
-        log(`🎯 recipient: ${recipient}`);
-        log(`🧱 recipient (bytes32): ${recipient32}`);
-        log(`🌐 dst Wormhole ChainID: ${dstChainId}  (⚠️ pastikan benar untuk Monad testnet)`);
-        log("────────────────────────────────");
-        log("✅ APPROVE (call):");
-        log(`to: ${srcUSDC}`);
-        log(`data: ${approveData}`);
-        log("────────");
-        log("✅ TRANSFER (call transferTokens):");
-        log(`to: ${tokenBridge}`);
-        log(`args:`);
-        log(JSON.stringify({
-          token: srcUSDC,
-          amountLD: amountLD.toString(),
-          recipientChain: dstChainId,
-          recipientBytes32: recipient32,
-          arbiterFee: "0",
-          nonce
-        }, null, 2));
-        log(`data: ${transferData}`);
-        log("────────────────────────────────");
-        log("📎 Edu note:");
-        log(`• Jika kamu ingin uji manual, buka Etherscan (${CHAINS[src].explorer}) → kontrak USDC → Write → approve(spender=${tokenBridge}, amount=${amountLD})`);
-        log(`• Lalu buka kontrak TokenBridge → Write → transferTokens(...) dengan argumen di atas.`);
-        log("• Bagian ini HANYA edukasi—script ini tidak mengirim transaksi.");
-      }catch(e){
-        log("❌ Prepare error: " + (e.message||e));
-      }
-    }
-
-    document.getElementById("connect").onclick = connect;
-    document.getElementById("prepare").onclick = prepare;
-  </script>
+document.getElementById("connect").onclick = connect;
+document.getElementById("approve").onclick = approveToken;
+document.getElementById("bridge").onclick = bridgeToken;
+document.getElementById("redeem").onclick = redeemVAA;
+</script>
 </body>
 </html>
