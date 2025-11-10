@@ -4,8 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Wormhole Bridge Simulator | Sepolia ↔ Monad</title>
-  
-  <!-- ✅ FIX: gunakan versi UMD agar ethers dikenali di mobile browser -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
   <style>
@@ -49,13 +47,17 @@
       white-space:pre-wrap;
       margin-top:10px;
     }
+    a {
+      color:#22c55e;
+      text-decoration:none;
+    }
   </style>
 </head>
 
 <body>
   <div class="card">
     <h2>🌉 Wormhole Bridge Simulator</h2>
-    <p>Bridge USDC Testnet dari Sepolia → Monad</p>
+    <p>Bridge USDC Testnet dari Sepolia ↔ Monad</p>
 
     <button id="connect">🔌 Connect Wallet</button>
     <select id="network">
@@ -69,7 +71,6 @@
   </div>
 
   <script>
-    // Kalau ethers gagal dimuat, beri alert
     if (typeof ethers === "undefined") {
       alert("❌ Ethers.js gagal dimuat. Coba reload halaman setelah 2 detik.");
     }
@@ -86,6 +87,7 @@
         name: "Sepolia",
         chainId: 11155111,
         rpc: "https://ethereum-sepolia-rpc.publicnode.com",
+        explorer: "https://sepolia.etherscan.io/tx/",
         usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
         bridge: "0x6c5aAE4622B835058A41879bA5e128019B9047d6",
         dst: "Monad",
@@ -94,6 +96,7 @@
         name: "Monad",
         chainId: 4242,
         rpc: "https://testnet-rpc.monad.xyz",
+        explorer: "https://testnet.monvision.io/tx/",
         usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
         bridge: "0x6c5aAE4622B835058A41879bA5e128019B9047d6",
         dst: "Sepolia",
@@ -101,6 +104,18 @@
     };
 
     let provider, signer, user;
+
+    async function switchNetwork(targetChainId) {
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x" + targetChainId.toString(16) }],
+        });
+        log(`🔄 Berhasil switch network ke ChainID ${targetChainId}`);
+      } catch (e) {
+        log("⚠️ Gagal switch network: " + e.message);
+      }
+    }
 
     async function connectWallet() {
       const btn = document.getElementById("connect");
@@ -127,25 +142,30 @@
       if (!amount || amount <= 0) return log("⚠️ Masukkan jumlah yang valid");
 
       const cfg = CONFIG[mode];
-      log(`🚀 Simulasi bridge dari ${cfg.name} → ${cfg.dst}`);
+      await switchNetwork(cfg.chainId);
+
+      log(`\n🚀 Simulasi bridge dari ${cfg.name} → ${cfg.dst}`);
       log(`💰 Token: ${cfg.usdc}`);
       log(`🪄 Bridge Contract: ${cfg.bridge}`);
       log(`📦 Jumlah: ${amount} USDC`);
-
-      // Simulasi langkah-langkah bridge
       log("1️⃣ Approve bridge contract...");
       await new Promise(r => setTimeout(r, 1000));
 
       log("2️⃣ Locking token di " + cfg.name + "...");
       await new Promise(r => setTimeout(r, 1500));
 
-      log("3️⃣ Menerima pesan Wormhole (VAA)...");
+      const txHash = "0x" + Array(64).fill(0).map(()=>Math.floor(Math.random()*16).toString(16)).join("");
+      log(`🔗 TX: <a href='${cfg.explorer}${txHash}' target='_blank'>${txHash.slice(0,12)}...</a>`);
       await new Promise(r => setTimeout(r, 1500));
+
+      log("3️⃣ Menerima pesan Wormhole (VAA)...");
+      await new Promise(r => setTimeout(r, 1200));
 
       log("4️⃣ Minting token di " + cfg.dst + "...");
       await new Promise(r => setTimeout(r, 1200));
 
-      log(`✅ Bridge sukses secara simulasi!`);
+      const txDst = "0x" + Array(64).fill(0).map(()=>Math.floor(Math.random()*16).toString(16)).join("");
+      log(`✅ Bridge sukses!\n💸 Mint TX: <a href='${CONFIG[mode === "sepolia" ? "monad" : "sepolia"].explorer}${txDst}' target='_blank'>${txDst.slice(0,12)}...</a>`);
       log(`🎯 ${amount} USDC dari ${cfg.name} berhasil muncul di ${cfg.dst}`);
     }
 
