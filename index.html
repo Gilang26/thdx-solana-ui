@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>THDX • Solana NFT UI</title>
 
-  <!-- ✅ Solana Web3.js bundle khusus browser (sudah ada polyfill Buffer) -->
+  <!-- ✅ Solana Web3.js bundle khusus browser (sudah dengan Buffer polyfill) -->
   <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.browser.min.js"></script>
+  <script>
+    // ✅ Fallback: pastikan variabel solanaWeb3 global selalu tersedia
+    window.solanaWeb3 = window.solanaWeb3 || window.web3js || window.web3 || window.solana || {};
+  </script>
 
   <style>
     body {
