@@ -4,31 +4,21 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>THDX • Solana NFT UI</title>
+  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.browser.min.js"></script>
   <style>
-    body {
-      background:#0b1220; color:#e6edf3;
-      font-family:system-ui,Arial,sans-serif;
-      margin:0; display:grid; place-items:center; height:100vh;
-    }
-    .card {
-      background:#121a2a; border:1px solid #22304a; border-radius:12px;
-      padding:24px; width:min(420px,90vw); text-align:center;
-    }
-    input,button {
-      width:100%; padding:12px; border-radius:10px; border:0;
-      font-size:15px; margin-top:8px;
-    }
-    button {cursor:pointer;font-weight:700;transition:.2s;}
-    #connect{background:linear-gradient(90deg,#7c5cff,#6ee7ff);}
-    #send{background:linear-gradient(90deg,#22c55e,#15803d);}
-    pre{white-space:pre-wrap;background:#0f1625;border:1px solid #22304a;
-        border-radius:10px;padding:10px;text-align:left;font-size:13px;margin-top:10px;}
+    body{background:#0b1220;color:#e6edf3;font-family:system-ui,Arial,sans-serif;margin:0;display:grid;place-items:center;height:100vh}
+    .card{background:#121a2a;border:1px solid #22304a;border-radius:12px;padding:24px;width:min(420px,90vw);text-align:center}
+    input,button{width:100%;padding:12px;border-radius:10px;border:0;font-size:15px;margin-top:8px}
+    button{cursor:pointer;font-weight:700;transition:.2s}
+    #connect{background:linear-gradient(90deg,#7c5cff,#6ee7ff)}
+    #send{background:linear-gradient(90deg,#22c55e,#15803d)}
+    pre{white-space:pre-wrap;background:#0f1625;border:1px solid #22304a;border-radius:10px;padding:10px;text-align:left;font-size:13px;margin-top:10px}
   </style>
 </head>
 <body>
   <div class="card">
     <h2>💠 THDX • Solana NFT UI</h2>
-    <p>Bridge / transfer SOL sederhana</p>
+    <p>Transfer SOL sederhana</p>
     <button id="connect">🔌 Connect Wallet</button>
     <input id="seller" placeholder="Alamat penerima (contoh: 6a8XJs...)" />
     <input id="amount" type="number" placeholder="Jumlah SOL" />
@@ -36,69 +26,64 @@
     <pre id="log">Log siap...</pre>
   </div>
 
-  <script type="module">
-    import * as solanaWeb3 from "https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.browser.min.js";
+  <script>
+    // ambil class langsung dari global (karena bundle ini menaruhnya di window)
+    const { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } = window;
 
-    const { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
-
-    const log = (m) => {
-      const el = document.getElementById("log");
-      el.textContent += "\n" + m;
-      el.scrollTop = el.scrollHeight;
+    const log = (m)=>{
+      const el=document.getElementById("log");
+      el.textContent+="\n"+m; el.scrollTop=el.scrollHeight;
       console.log(m);
     };
 
-    let provider = null;
-    let pubkey = null;
+    let provider=null, pubkey=null;
 
-    async function connectWallet() {
-      try {
-        if (window.solana && window.solana.isPhantom) {
-          const resp = await window.solana.connect();
-          provider = window.solana;
-          pubkey = resp.publicKey;
-          log("✅ Connected: " + pubkey.toString());
-          document.getElementById("send").disabled = false;
-        } else {
-          log("❌ Wallet tidak terdeteksi. Gunakan browser wallet seperti OKX atau Phantom.");
+    async function connectWallet(){
+      try{
+        if(window.solana && window.solana.isPhantom){
+          const resp=await window.solana.connect();
+          provider=window.solana;
+          pubkey=resp.publicKey;
+          log("✅ Connected: "+pubkey.toString());
+          document.getElementById("send").disabled=false;
+        }else{
+          log("❌ Wallet tidak terdeteksi. Buka di browser Phantom / OKX / Trust Wallet.");
         }
-      } catch (err) {
-        log("❌ Connect error: " + err.message);
-      }
+      }catch(e){ log("❌ Connect error: "+e.message); }
     }
 
-    async function sendSol() {
-      try {
-        if (!provider || !pubkey) return log("⚠️ Hubungkan wallet dulu.");
-        const seller = document.getElementById("seller").value.trim();
-        const amountSol = parseFloat(document.getElementById("amount").value);
-        if (!seller || isNaN(amountSol)) return log("⚠️ Isi alamat penerima dan jumlah SOL.");
+    async function sendSol(){
+      try{
+        if(!provider||!pubkey) return log("⚠️ Hubungkan wallet dulu.");
+        const seller=document.getElementById("seller").value.trim();
+        const amountSol=parseFloat(document.getElementById("amount").value);
+        if(!seller||isNaN(amountSol)) return log("⚠️ Isi alamat penerima dan jumlah SOL.");
 
-        const connection = new Connection("https://rpc.ankr.com/solana", "confirmed");
-        const txn = new Transaction().add(
+        const connection=new Connection("https://rpc.ankr.com/solana","confirmed");
+        const txn=new Transaction().add(
           SystemProgram.transfer({
-            fromPubkey: pubkey,
-            toPubkey: new PublicKey(seller),
-            lamports: amountSol * LAMPORTS_PER_SOL
+            fromPubkey:pubkey,
+            toPubkey:new PublicKey(seller),
+            lamports:amountSol*LAMPORTS_PER_SOL
           })
         );
 
-        txn.feePayer = pubkey;
-        const { blockhash } = await connection.getLatestBlockhash();
-        txn.recentBlockhash = blockhash;
+        txn.feePayer=pubkey;
+        const {blockhash}=await connection.getLatestBlockhash();
+        txn.recentBlockhash=blockhash;
 
-        const signed = await provider.signTransaction(txn);
-        const sig = await connection.sendRawTransaction(signed.serialize());
-        log("🚀 TX sent: " + sig);
-        await connection.confirmTransaction(sig, "confirmed");
+        const signed=await provider.signTransaction(txn);
+        const sig=await connection.sendRawTransaction(signed.serialize());
+        log("🚀 TX sent: "+sig);
+        await connection.confirmTransaction(sig,"confirmed");
         log("✅ Transaksi selesai!");
-      } catch (err) {
-        log("❌ Error: " + (err.message || err));
+      }catch(e){
+        log("❌ Error: "+(e.message||e));
       }
     }
 
-    document.getElementById("connect").onclick = connectWallet;
-    document.getElementById("send").onclick = sendSol;
+    document.getElementById("connect").onclick=connectWallet;
+    document.getElementById("send").onclick=sendSol;
   </script>
 </body>
 </html>
