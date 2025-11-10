@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>THDX • Solana Lite UI v2</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>THDX • Solana Lite v3 – Smart Wallet Detector</title>
   <style>
     body{background:#0b1220;color:#e6edf3;font-family:system-ui,Arial,sans-serif;margin:0;display:grid;place-items:center;height:100vh}
     .card{background:#121a2a;border:1px solid #22304a;border-radius:12px;padding:24px;width:min(420px,90vw);text-align:center}
@@ -16,8 +16,8 @@
 </head>
 <body>
   <div class="card">
-    <h2>💠 THDX • Solana Lite UI v2</h2>
-    <p>Transfer SOL via signTransaction API (tanpa web3.js)</p>
+    <h2>💠 THDX • Solana Lite v3</h2>
+    <p>Smart wallet detector for mobile Solana wallets</p>
     <button id="connect">🔌 Connect Wallet</button>
     <input id="receiver" placeholder="Alamat penerima (contoh: 6a8XJs...)" />
     <input id="amount" type="number" placeholder="Jumlah SOL (contoh: 0.01)" />
@@ -33,25 +33,38 @@
       console.log(m);
     };
 
-    let provider=null;
-    let pubkey=null;
+    let provider=null, walletType=null, pubkey=null;
+
+    function detectWallet(){
+      if(window.solana && window.solana.isPhantom){
+        walletType="phantom";
+        provider=window.solana;
+        log("🟣 Phantom Wallet terdeteksi");
+      }else if(window.okxwallet && window.okxwallet.solana){
+        walletType="okx";
+        provider=window.okxwallet.solana;
+        log("🟠 OKX Wallet terdeteksi");
+      }else{
+        walletType=null;
+        log("⚪ Tidak ada wallet Solana terdeteksi");
+      }
+    }
 
     async function connectWallet(){
+      detectWallet();
       try{
-        if(window.solana && window.solana.isPhantom){
-          provider=window.solana;
+        if(walletType==="phantom"){
           const resp=await provider.connect();
           pubkey=resp.publicKey.toString();
-          log("✅ Connected (Phantom): "+pubkey);
+          log("✅ Connected: "+pubkey);
           document.getElementById("send").disabled=false;
-        }else if(window.okxwallet && window.okxwallet.solana){
-          provider=window.okxwallet.solana;
+        }else if(walletType==="okx"){
           const resp=await provider.connect();
           pubkey=resp.publicKey.toString();
-          log("✅ Connected (OKX): "+pubkey);
+          log("✅ Connected OKX: "+pubkey);
           document.getElementById("send").disabled=false;
         }else{
-          log("❌ Wallet tidak ditemukan. Gunakan browser Phantom / OKX / Trust.");
+          log("❌ Wallet tidak ditemukan.\n👉 Buka halaman ini melalui browser Phantom atau OKX App.");
         }
       }catch(e){
         log("❌ Connect error: "+(e.message||e));
@@ -63,24 +76,23 @@
         if(!provider||!pubkey) return log("⚠️ Hubungkan wallet dulu.");
         const to=document.getElementById("receiver").value.trim();
         const amount=parseFloat(document.getElementById("amount").value);
-        if(!to||isNaN(amount)) return log("⚠️ Isi alamat penerima & jumlah.");
+        if(!to||isNaN(amount)) return log("⚠️ Isi alamat penerima dan jumlah.");
 
         log("🧾 Menyiapkan transaksi...");
 
-        // Buat raw transaction di wallet (provider buatkan sendiri)
-        const txData = {
-          recipient: to,
-          amount: amount,
-          network: "mainnet-beta"
-        };
-
-        const tx = await provider.request({
-          method: "solana_signAndSendTransaction",
-          params: [txData],
-        });
-
-        log("🚀 TX terkirim!");
-        log("🔗 Signature: "+tx);
+        if(walletType==="phantom"){
+          // API resmi Phantom mobile
+          const tx = await provider.request({
+            method:"signAndSendTransaction",
+            params:[{ to, amount }],
+          });
+          log("🚀 TX terkirim (Phantom)");
+          log("🔗 Signature: "+JSON.stringify(tx));
+        }else if(walletType==="okx"){
+          log("⚠️ OKX belum mendukung transfer langsung dari browser eksternal.\n👉 Buka dApp ini di OKX Web3 browser.");
+        }else{
+          log("❌ Tidak ada wallet yang bisa mengirim SOL.");
+        }
       }catch(e){
         log("❌ Error: "+(e.message||JSON.stringify(e)));
       }
