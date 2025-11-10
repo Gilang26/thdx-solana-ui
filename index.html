@@ -3,62 +3,145 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>THDX • Solana Sender UI</title>
+  <title>Wormhole Bridge Simulator | Sepolia ↔ Monad</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
   <style>
-    body{background:#0b1220;color:#e6edf3;font-family:system-ui,Arial,sans-serif;margin:0;display:grid;place-items:center;height:100vh}
-    .card{background:#121a2a;border:1px solid #22304a;border-radius:12px;padding:24px;width:min(420px,90vw);text-align:center}
-    input,button{width:100%;padding:12px;border-radius:10px;border:0;font-size:15px;margin-top:8px}
-    button{cursor:pointer;font-weight:700;transition:.2s}
-    #send{background:linear-gradient(90deg,#22c55e,#15803d)}
-    pre{white-space:pre-wrap;background:#0f1625;border:1px solid #22304a;border-radius:10px;padding:10px;text-align:left;font-size:13px;margin-top:10px}
+    body {
+      background:#0b1220;
+      color:#e6edf3;
+      font-family:system-ui,Arial,sans-serif;
+      margin:0;
+      display:grid;
+      place-items:center;
+      height:100vh;
+    }
+    .card {
+      background:#121a2a;
+      border:1px solid #22304a;
+      border-radius:12px;
+      padding:24px;
+      width:min(430px,90vw);
+      text-align:center;
+      box-shadow:0 0 12px rgba(0,0,0,0.3);
+    }
+    h2 { color:#8b5cf6; margin-top:0; }
+    select,input,button {
+      width:100%;
+      padding:12px;
+      border-radius:10px;
+      border:0;
+      margin-top:10px;
+      font-size:15px;
+    }
+    button { cursor:pointer; font-weight:700; transition:0.2s; }
+    #connect { background:linear-gradient(90deg,#6ee7ff,#7c5cff); }
+    #bridge { background:linear-gradient(90deg,#22c55e,#15803d); }
+    pre {
+      background:#0f1625;
+      border:1px solid #22304a;
+      border-radius:10px;
+      padding:10px;
+      text-align:left;
+      font-size:13px;
+      white-space:pre-wrap;
+      margin-top:10px;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>💠 THDX • Solana Sender UI</h2>
-    <p>Kirim SOL via API backend (tanpa wallet langsung)</p>
-    <input id="receiver" placeholder="Alamat penerima (contoh: 9CUV5oYPfoCA7wwPakZHMDieGvb5bB5NVio84W3VAWWM)" />
-    <input id="amount" type="number" placeholder="Jumlah SOL (contoh: 0.001)" />
-    <button id="send">🚀 Kirim</button>
+    <h2>🌉 Wormhole Bridge Simulator</h2>
+    <p>Bridge USDC Testnet dari Sepolia → Monad</p>
+
+    <button id="connect">🔌 Connect Wallet</button>
+    <select id="network">
+      <option value="sepolia">Sepolia → Monad</option>
+      <option value="monad">Monad → Sepolia</option>
+    </select>
+
+    <input id="amount" type="number" placeholder="Jumlah USDC (misal: 10.5)" />
+    <button id="bridge" disabled>🚀 Simulate Bridge</button>
     <pre id="log">Log siap...</pre>
   </div>
 
   <script>
-    const log = (m)=>{
-      const el=document.getElementById("log");
-      el.textContent+="\n"+m;
-      el.scrollTop=el.scrollHeight;
+    const log = (m) => {
+      const el = document.getElementById("log");
+      el.textContent += "\\n" + m;
+      el.scrollTop = el.scrollHeight;
       console.log(m);
     };
 
-    async function sendSol(){
-      try{
-        const to=document.getElementById("receiver").value.replace(/\s+/g,'').trim();
-        const amount=parseFloat(document.getElementById("amount").value);
-        if(!to||isNaN(amount)) return log("⚠️ Isi alamat penerima dan jumlah.");
+    const CONFIG = {
+      sepolia: {
+        name: "Sepolia",
+        chainId: 11155111,
+        rpc: "https://ethereum-sepolia-rpc.publicnode.com",
+        usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+        bridge: "0x6c5aAE4622B835058A41879bA5e128019B9047d6",
+        dst: "Monad",
+      },
+      monad: {
+        name: "Monad",
+        chainId: 4242,
+        rpc: "https://testnet-rpc.monad.xyz",
+        usdc: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+        bridge: "0x6c5aAE4622B835058A41879bA5e128019B9047d6",
+        dst: "Sepolia",
+      },
+    };
 
-        log("🧾 Mengirim permintaan ke server...");
+    let provider, signer, user;
 
-        const res=await fetch("/api/send-sol",{
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({to,amount})
-        });
-
-        const data=await res.json();
-        if(!res.ok){
-          log("❌ Error: "+(data.error||"Gagal kirim"));
-          return;
-        }
-
-        log("✅ Transaksi terkirim!");
-        log("🔗 "+data.explorer);
-      }catch(e){
-        log("❌ Error: "+(e.message||e));
+    async function connectWallet() {
+      const btn = document.getElementById("connect");
+      try {
+        if (!window.ethereum) throw new Error("MetaMask / OKX Wallet tidak ditemukan");
+        btn.disabled = true; btn.textContent = "⏳ Connecting...";
+        provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        user = await signer.getAddress();
+        const net = await provider.getNetwork();
+        log(`✅ Connected: ${user}\\nChain: ${net.chainId}`);
+        btn.textContent = "✅ Wallet Connected";
+        document.getElementById("bridge").disabled = false;
+      } catch (e) {
+        log("❌ Connect error: " + e.message);
+        btn.disabled = false; btn.textContent = "🔌 Connect Wallet";
       }
     }
 
-    document.getElementById("send").onclick=sendSol;
+    async function simulateBridge() {
+      const mode = document.getElementById("network").value;
+      const amount = parseFloat(document.getElementById("amount").value);
+      if (!amount || amount <= 0) return log("⚠️ Masukkan jumlah yang valid");
+
+      const cfg = CONFIG[mode];
+      log(`🚀 Simulasi bridge dari ${cfg.name} → ${cfg.dst}`);
+      log(`💰 Token: ${cfg.usdc}`);
+      log(`🪄 Bridge Contract: ${cfg.bridge}`);
+      log(`📦 Jumlah: ${amount} USDC`);
+
+      // Simulasi langkah-langkah bridge
+      log("1️⃣ Approve bridge contract...");
+      await new Promise(r => setTimeout(r, 1000));
+
+      log("2️⃣ Locking token di " + cfg.name + "...");
+      await new Promise(r => setTimeout(r, 1500));
+
+      log("3️⃣ Menerima pesan Wormhole (VAA)...");
+      await new Promise(r => setTimeout(r, 1500));
+
+      log("4️⃣ Minting token di " + cfg.dst + "...");
+      await new Promise(r => setTimeout(r, 1200));
+
+      log(`✅ Bridge sukses secara simulasi!`);
+      log(`🎯 ${amount} USDC dari ${cfg.name} berhasil muncul di ${cfg.dst}`);
+    }
+
+    document.getElementById("connect").onclick = connectWallet;
+    document.getElementById("bridge").onclick = simulateBridge;
   </script>
 </body>
 </html>
