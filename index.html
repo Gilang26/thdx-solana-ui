@@ -2,26 +2,24 @@
 <html lang="id">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>THDX • Solana Lite v3 – Smart Wallet Detector</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>THDX • Solana Sender UI</title>
   <style>
     body{background:#0b1220;color:#e6edf3;font-family:system-ui,Arial,sans-serif;margin:0;display:grid;place-items:center;height:100vh}
     .card{background:#121a2a;border:1px solid #22304a;border-radius:12px;padding:24px;width:min(420px,90vw);text-align:center}
     input,button{width:100%;padding:12px;border-radius:10px;border:0;font-size:15px;margin-top:8px}
     button{cursor:pointer;font-weight:700;transition:.2s}
-    #connect{background:linear-gradient(90deg,#7c5cff,#6ee7ff)}
     #send{background:linear-gradient(90deg,#22c55e,#15803d)}
     pre{white-space:pre-wrap;background:#0f1625;border:1px solid #22304a;border-radius:10px;padding:10px;text-align:left;font-size:13px;margin-top:10px}
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>💠 THDX • Solana Lite v3</h2>
-    <p>Smart wallet detector for mobile Solana wallets</p>
-    <button id="connect">🔌 Connect Wallet</button>
+    <h2>💠 THDX • Solana Sender UI</h2>
+    <p>Kirim SOL via API backend (tanpa wallet)</p>
     <input id="receiver" placeholder="Alamat penerima (contoh: 6a8XJs...)" />
     <input id="amount" type="number" placeholder="Jumlah SOL (contoh: 0.01)" />
-    <button id="send" disabled>🚀 Kirim</button>
+    <button id="send">🚀 Kirim</button>
     <pre id="log">Log siap...</pre>
   </div>
 
@@ -33,72 +31,30 @@
       console.log(m);
     };
 
-    let provider=null, walletType=null, pubkey=null;
-
-    function detectWallet(){
-      if(window.solana && window.solana.isPhantom){
-        walletType="phantom";
-        provider=window.solana;
-        log("🟣 Phantom Wallet terdeteksi");
-      }else if(window.okxwallet && window.okxwallet.solana){
-        walletType="okx";
-        provider=window.okxwallet.solana;
-        log("🟠 OKX Wallet terdeteksi");
-      }else{
-        walletType=null;
-        log("⚪ Tidak ada wallet Solana terdeteksi");
-      }
-    }
-
-    async function connectWallet(){
-      detectWallet();
-      try{
-        if(walletType==="phantom"){
-          const resp=await provider.connect();
-          pubkey=resp.publicKey.toString();
-          log("✅ Connected: "+pubkey);
-          document.getElementById("send").disabled=false;
-        }else if(walletType==="okx"){
-          const resp=await provider.connect();
-          pubkey=resp.publicKey.toString();
-          log("✅ Connected OKX: "+pubkey);
-          document.getElementById("send").disabled=false;
-        }else{
-          log("❌ Wallet tidak ditemukan.\n👉 Buka halaman ini melalui browser Phantom atau OKX App.");
-        }
-      }catch(e){
-        log("❌ Connect error: "+(e.message||e));
-      }
-    }
-
     async function sendSol(){
       try{
-        if(!provider||!pubkey) return log("⚠️ Hubungkan wallet dulu.");
         const to=document.getElementById("receiver").value.trim();
         const amount=parseFloat(document.getElementById("amount").value);
         if(!to||isNaN(amount)) return log("⚠️ Isi alamat penerima dan jumlah.");
 
-        log("🧾 Menyiapkan transaksi...");
+        log("🧾 Mengirim permintaan ke server...");
 
-        if(walletType==="phantom"){
-          // API resmi Phantom mobile
-          const tx = await provider.request({
-            method:"signAndSendTransaction",
-            params:[{ to, amount }],
-          });
-          log("🚀 TX terkirim (Phantom)");
-          log("🔗 Signature: "+JSON.stringify(tx));
-        }else if(walletType==="okx"){
-          log("⚠️ OKX belum mendukung transfer langsung dari browser eksternal.\n👉 Buka dApp ini di OKX Web3 browser.");
-        }else{
-          log("❌ Tidak ada wallet yang bisa mengirim SOL.");
-        }
+        const res=await fetch("/api/send-sol",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({to,amount})
+        });
+
+        const data=await res.json();
+        if(data.error) return log("❌ Error: "+data.error);
+
+        log("✅ Transaksi terkirim!");
+        log("🔗 Explorer: https://explorer.solana.com/tx/"+data.signature+"?cluster=mainnet-beta");
       }catch(e){
-        log("❌ Error: "+(e.message||JSON.stringify(e)));
+        log("❌ Error: "+(e.message||e));
       }
     }
 
-    document.getElementById("connect").onclick=connectWallet;
     document.getElementById("send").onclick=sendSol;
   </script>
 </body>
